@@ -4,7 +4,7 @@ Associating dynamically created UI elements in WPF with unique names.
 
 ## Motivation
 
-Here at [Clemex](https://www.clemex.com/), we use an automated testing tool that relies on the [`FrameworkElement.Name`](https://msdn.microsoft.com/en-us/library/system.windows.frameworkelement(v=vs.110).aspx) property to interact with the application. Sometimes we need to create dynamic controls based on collection data, but can end up with the same name for multiple UI elements.
+Here at [Clemex](https://www.clemex.com/), we use an automated testing tool that relies on the [`FrameworkElement.Name`](https://msdn.microsoft.com/en-us/library/system.windows.frameworkelement(v=vs.110).aspx) property to interact with the application. Sometimes we need to create dynamic controls based on collection data, that can end up with the same name for multiple UI elements.
 
 For example, the following code generates a menu based on a collection of panels.
 
@@ -24,10 +24,10 @@ We want to avoid this situation and have unique names for each button.
 
 To accomplish that, we will describe four different approaches.
 
-* Using the Code-Behid: easiest way, but not elegant;
-* Using data binding: natural and elegant, but doesn't work;
-* Using attached properties: an elegant working solution;
-* Using collection indexes: extending our attached properties solution.
+* Using the Code-Behid
+* Using data binding
+* Using attached properties
+* Using collection indexes
 
 ## Using the Code-Behind
 
@@ -36,7 +36,7 @@ Assuming that we have access to some unique ID on the elements data context. The
 ```xml
 <DataTemplate>
     <Button Content="{Binding Title}"
-            Loaded="OnMenuBtnLoaded" />
+            Loaded="OnMenuBtnLoaded"/>
 </DataTemplate>
 ```
 
@@ -45,9 +45,9 @@ private void OnMenuBtnLoaded(object sender, RoutedEventArgs e)
 {
     if (sender is FrameworkElement element)
     {
-        if (element.DataContext is ViewModel item)
+        if (element.DataContext is PanelViewModel item)
         {
-            element.Name = $"MenuBtn{item.ID}";
+            element.Name = $"MenuBtn{item.Id}";
         }
     }
 }
@@ -61,12 +61,12 @@ Using data binding makes our code much cleaner, as well as easier to read and un
 
 ```xml
 <DataTemplate>
-    <Button Content="{Binding Title}"
-            Name="{Binding ID, StringFormat='MenuBtn{0}'}" />
+    <Button Content="{Binding Title}" 
+            Name="{Binding Id, StringFormat='MenuBtn{0}'}" />
 </DataTemplate>
 ```
 
-Unfortunately, if we try to build this code, we will get a compilation error.
+Unfortunately, if we try to build this code, we will get a compilation error with the message:
 
 > MarkupExtensions are not allowed for Uid or Name property values, so '{Binding Panel.PanelType, StringFormat='MenuBtn{0}'}' is not valid.
 
@@ -107,16 +107,16 @@ public class AttachedProperties
 }
 ```
 
-The `OnValueChanged` event triggers every time the value of our property changes. When that happens, we get the new value and set it to be the `FrameworkElement` name. We are giving our attached property the name `Name`, but it could be anything we want like `CustomName` or `TestName`.
+The `OnValueChanged` event triggers every time the value of our property changes. When that happens, we get the new value and set it to be the `FrameworkElement` name. We are giving our attached property the name `Name`, but it could be anything we want, like `CustomName` or `TestName`.
 
 To use the new property, we need to add a namespace to the XAML and attach the property to our button.
 
 ```xml
-<UserControl xmlns:ext="clr-namespace:Clemex.Presentation.Extensions">
+<UserControl xmlns:ext="clr-namespace:UniqueNames.Extensions">
 
 <DataTemplate>
     <Button Content="{Binding Title}"
-            ext:AttachedProperties.Name="{Binding ID, StringFormat='MenuBtn{0}'}" />
+            ext:AttachedProperties.Name="{Binding Id, StringFormat='MenuBtn{0}'}" />
 </DataTemplate>
 ```
 
@@ -124,16 +124,16 @@ Our code will now compile without any problems, and we will have unique names fo
 
 ## Using collection indexes
 
-In the previous example, we created unique names by appending the property `ID`. There are other scenarios where we don't have an ID on the item to create a unique element name. For that, we can instead use the collection index.
+In the previous example, we created unique names by appending the property `Id`. There are other scenarios where we don't have an ID on the item to create a unique element name. For that, we can instead use the collection index.
 
 Let's try to bind our button collection to a list of strings.
 
 ```csharp
-public IReadonlyList<string> Values { get; } = new []
+public IEnumerable<string> Values { get; } = new[]
 {
-    "Item 1",
-    "Item 2",
-    "Item 3"
+    "Panel 1",
+    "Panel 2",
+    "Panel 3"
 };
 ```
 
@@ -144,11 +144,11 @@ public class IndexOfConverter : IMultiValueConverter
 {
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
-        if (values.length == 2 && values[1] is IEnumerable<object> collection)
+        if (values.Length == 2 && values[1] is IEnumerable<object> collection)
         {
-            return collection.IndexOf(values[0]);
+            return collection.TakeWhile(x => x != values[0]).Count();
         }
-        
+
         throw new NotImplementedException();
     }
 
@@ -168,7 +168,7 @@ In the XAML, we will now use [MultiBinding](https://msdn.microsoft.com/en-us/lib
             <MultiBinding StringFormat="MenuBtn{0:00}" Converter="{StaticResource IndexOfConverter}">
                 <Binding />
                 <Binding Path="DataContext.Values"
-                         RelativeSource="{RelativeSource FindAncestor, AncestorType=ListView}" />
+                         RelativeSource="{RelativeSource FindAncestor, AncestorType=ItemsControl}" />
             </MultiBinding>
         </ext:AttachedProperties.Name>
     </Button>
